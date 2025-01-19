@@ -34,16 +34,17 @@ interface File {
 }
 
 import React from "react";
+import Link from "next/link";
 
 type Props = { pdf_url: string };
 
 const PDFViewer = ({ pdf_url }: Props) => {
   return (
-    <a href={pdf_url} target="_blank" rel="noopener noreferrer">
-      <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white">
+    <Link href={pdf_url} target="_blank" rel="noopener noreferrer">
+      <Button className="w-full bg-black hover:bg-white text-white hover:text-black">
         Open PDF in New Tab
       </Button>
-    </a>
+    </Link>
   );
 };
 
