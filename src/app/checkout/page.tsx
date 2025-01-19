@@ -133,7 +133,7 @@ export default function CheckoutPage() {
                     <div className="space-y-4 mt-4">
                       <Button
                         onClick={() => setSelectedPaymentMethod("UPI")}
-                        className={`w-full justify-start ${
+                        className={`w-full justify-start text-black ${
                           selectedPaymentMethod === "UPI" ? "bg-blue-100" : "bg-gray-100 hover:bg-gray-200"
                         }`}
                       >
@@ -184,7 +184,7 @@ export default function CheckoutPage() {
               </DialogHeader>
               <div className="flex flex-col items-center space-y-4">
                 <div className="bg-green-500 rounded-full p-4">
-                  <Image src="/checkmark.png" alt="Order Complete" width={40} height={40} />
+                  <Image src="/check.jpg" alt="Order Complete" width={40} height={40} />
                 </div>
                 <p>Your order has been successfully placed!</p>
                 <Button
