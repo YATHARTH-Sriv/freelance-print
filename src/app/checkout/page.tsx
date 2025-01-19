@@ -38,14 +38,15 @@ import React from "react";
 type Props = { pdf_url: string };
 
 const PDFViewer = ({ pdf_url }: Props) => {
-    console.log(pdf_url);
   return (
-    <iframe
-      src={`${pdf_url}`}
-      className="w-full h-[400px] rounded-lg"
-    ></iframe>
+    <a href={pdf_url} target="_blank" rel="noopener noreferrer">
+      <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white">
+        Open PDF in New Tab
+      </Button>
+    </a>
   );
 };
+
 
 
 
@@ -128,16 +129,16 @@ export default function CheckoutPage() {
                   {files.length === 0 && (
                     <p className="text-sm text-gray-600">No files to checkout.</p>
                   )}
-                  {files.map((file) => (
+                   {files.map((file) => (
                     <div key={file._id} className="space-y-4">
-                      <div className="flex justify-between text-sm">
+                        <div className="flex justify-between text-sm">
                         <span className="text-gray-600">{file.filename}</span>
-                      </div>
+                        </div>
 
-                      {/* Use PDFViewer component for the preview */}
-                      <PDFViewer pdf_url={file.url} />
+                        {/* Use PDFViewer component for the preview */}
+                        <PDFViewer pdf_url={file.url} />
                     </div>
-                  ))}
+                    ))}
 
                   <Separator />
                 </div>
