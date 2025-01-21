@@ -6,10 +6,11 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import Image from "next/image";
 import { useSession } from "next-auth/react";
 import axios from "axios";
-import { ChevronLeft, ChevronRight, FileText } from 'lucide-react';
+import { Loader2, AlertCircle } from 'lucide-react';
 
 interface PrintShop {
   name: string;
@@ -28,28 +29,67 @@ interface File {
   updatedAt: string;
   uploadDate: string;
   url: string;
+  localUrl?: string;
   userId: string;
   __v: number;
   _id: string;
 }
 
-import React from "react";
-import Link from "next/link";
+interface PDFViewerProps {
+  pdfUrl: string;
+  width?: number;
+}
 
-type Props = { pdf_url: string };
+const PDFViewer: React.FC<PDFViewerProps> = ({ pdfUrl, width = 800 }) => {
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-const PDFViewer = ({ pdf_url }: Props) => {
+  useEffect(() => {
+    const checkPDF = async () => {
+      try {
+        const response = await fetch(pdfUrl);
+        if (!response.ok) {
+          throw new Error('Failed to load PDF');
+        }
+        setIsLoading(false);
+      } catch (err) {
+        setError('Error loading PDF. Please try again.');
+        setIsLoading(false);
+      }
+    };
+
+    checkPDF();
+  }, [pdfUrl]);
+
+  if (error) {
+    return (
+      <Alert variant="destructive">
+        <AlertCircle className="h-4 w-4" />
+        <AlertDescription>{error}</AlertDescription>
+      </Alert>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center p-4">
+        <Loader2 className="h-6 w-6 animate-spin" />
+      </div>
+    );
+  }
+
   return (
-    <Link href={pdf_url} target="_blank" rel="noopener noreferrer">
-      <Button className="w-full bg-black hover:bg-white text-white hover:text-black">
-        Open PDF in New Tab
-      </Button>
-    </Link>
+    <div className="w-full overflow-hidden rounded-lg border border-gray-200">
+      <iframe
+        src={`${pdfUrl}#toolbar=0`}
+        width={width}
+        height={400}
+        className="w-full"
+        style={{ border: 'none' }}
+      />
+    </div>
   );
 };
-
-
-
 
 export default function CheckoutPage() {
   const { data: session } = useSession();
@@ -60,22 +100,34 @@ export default function CheckoutPage() {
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isOrderComplete, setIsOrderComplete] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    navigator.geolocation.getCurrentPosition((position) => {
-      setUserLocation({
-        lat: position.coords.latitude,
-        lng: position.coords.longitude,
-      });
-    });
+    // Get user's location
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setUserLocation({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        });
+      },
+      (error) => {
+        console.error("Error getting location:", error);
+        setError("Failed to get your location. Please enable location services.");
+      }
+    );
 
+    // Fetch pending files
     const fetchFiles = async () => {
       try {
+        setIsLoading(true);
         const response = await axios.get("/api/getfilespending");
-        console.log("Files:", response.data);
         setFiles(response.data);
       } catch (error) {
         console.error("Error fetching files:", error);
+        setError("Failed to load your files. Please try again.");
+      } finally {
+        setIsLoading(false);
       }
     };
 
@@ -83,13 +135,15 @@ export default function CheckoutPage() {
   }, []);
 
   const handleCompleteFiles = async () => {
-    setIsLoading(true);
     try {
+      setIsLoading(true);
       await axios.post("/api/getfilespending");
       setFiles([]);
       setIsOrderComplete(true);
+      setIsPaymentOpen(false);
     } catch (error) {
-      console.error("Error updating files:", error);
+      console.error("Error completing order:", error);
+      setError("Failed to complete your order. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -99,10 +153,21 @@ export default function CheckoutPage() {
     <div className="min-h-screen bg-gray-50 p-8">
       <div className="container mx-auto max-w-7xl">
         <h1 className="text-3xl font-bold mb-8 text-gray-800">Checkout</h1>
+        
+        {error && (
+          <Alert variant="destructive" className="mb-6">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Map Card */}
           <Card className="shadow-lg">
             <CardHeader>
-              <CardTitle className="text-xl font-semibold text-gray-800">Nearby Print Shops</CardTitle>
+              <CardTitle className="text-xl font-semibold text-gray-800">
+                Nearby Print Shops
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <LoadScript googleMapsApiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!}>
@@ -119,31 +184,48 @@ export default function CheckoutPage() {
             </CardContent>
           </Card>
 
+          {/* Order Summary Card */}
           <div className="space-y-6">
             <Card className="shadow-lg">
               <CardHeader>
-                <CardTitle className="text-xl font-semibold text-gray-800">Order Summary</CardTitle>
+                <CardTitle className="text-xl font-semibold text-gray-800">
+                  Order Summary
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  <p className="text-sm text-gray-600">User: {session?.user?.name || "Guest"}</p>
-                  {files.length === 0 && (
-                    <p className="text-sm text-gray-600">No files to checkout.</p>
-                  )}
-                   {files.map((file) => (
-                    <div key={file._id} className="space-y-4">
-                        <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">{file.filename}</span>
-                        </div>
-
-                        {/* Use PDFViewer component for the preview */}
-                        <PDFViewer pdf_url={file.url} />
+                  <p className="text-sm text-gray-600">
+                    User: {session?.user?.name || "Guest"}
+                  </p>
+                  
+                  {isLoading ? (
+                    <div className="flex justify-center items-center p-4">
+                      <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                      <span>Loading your files...</span>
                     </div>
-                    ))}
-
+                  ) : files.length === 0 ? (
+                    <p className="text-sm text-gray-600">No files to checkout.</p>
+                  ) : (
+                    files.map((file) => (
+                      <div key={file._id} className="space-y-4">
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-gray-600 font-medium">{file.filename}</span>
+                          <span className="text-gray-500 text-xs">
+                            {new Date(file.createdAt).toLocaleDateString()}
+                          </span>
+                        </div>
+                        <PDFViewer 
+                          pdfUrl={file.localUrl || file.url} 
+                          width={800}
+                        />
+                      </div>
+                    ))
+                  )}
+                  
                   <Separator />
                 </div>
               </CardContent>
+              
               <CardFooter>
                 {files.length > 0 ? (
                   <Dialog open={isPaymentOpen} onOpenChange={setIsPaymentOpen}>
@@ -154,12 +236,18 @@ export default function CheckoutPage() {
                     </DialogTrigger>
                     <DialogContent className="bg-white">
                       <DialogHeader>
-                        <DialogTitle className="text-xl font-bold text-gray-800">Choose Payment Method</DialogTitle>
+                        <DialogTitle className="text-xl font-bold text-gray-800">
+                          Choose Payment Method
+                        </DialogTitle>
                       </DialogHeader>
                       <div className="space-y-4 mt-4">
                         <Button
                           onClick={() => setSelectedPaymentMethod("UPI")}
-                          className={`w-full justify-start text-black ${selectedPaymentMethod === "UPI" ? "bg-blue-100" : "bg-gray-100 hover:bg-gray-200"}`}
+                          className={`w-full justify-start text-black ${
+                            selectedPaymentMethod === "UPI" 
+                              ? "bg-blue-100" 
+                              : "bg-gray-100 hover:bg-gray-200"
+                          }`}
                         >
                           <Image
                             src="/googleupi.png"
@@ -174,11 +262,12 @@ export default function CheckoutPage() {
                       {selectedPaymentMethod && (
                         <Button
                           onClick={handleCompleteFiles}
+                          disabled={isLoading}
                           className="w-full bg-green-600 hover:bg-green-700 text-white mt-4"
                         >
                           {isLoading ? (
                             <div className="flex items-center justify-center">
-                              <div className="loader mr-2"></div>
+                              <Loader2 className="h-4 w-4 animate-spin mr-2" />
                               Processing...
                             </div>
                           ) : (
@@ -190,7 +279,7 @@ export default function CheckoutPage() {
                   </Dialog>
                 ) : (
                   <Button
-                    onClick={() => (window.location.href = "/upload")}
+                    onClick={() => window.location.href = "/upload"}
                     className="w-full bg-gray-600 hover:bg-gray-700 text-white"
                   >
                     Go to Uploads
@@ -201,27 +290,36 @@ export default function CheckoutPage() {
           </div>
         </div>
 
-        {isOrderComplete && (
-          <Dialog open={isOrderComplete} onOpenChange={setIsOrderComplete}>
-            <DialogContent className="bg-white text-center">
-              <DialogHeader>
-                <DialogTitle className="text-xl font-bold text-gray-800">Order Complete</DialogTitle>
-              </DialogHeader>
-              <div className="flex flex-col items-center space-y-4">
-                <div className="bg-green-500 rounded-full p-4">
-                  <Image src="/check.jpg" alt="Order Complete" width={40} height={40} />
-                </div>
-                <p>Your order has been successfully placed!</p>
-                <Button
-                  onClick={() => setIsOrderComplete(false)}
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
-                >
-                  Close
-                </Button>
+        {/* Order Complete Dialog */}
+        <Dialog open={isOrderComplete} onOpenChange={setIsOrderComplete}>
+          <DialogContent className="bg-white text-center">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-bold text-gray-800">
+                Order Complete
+              </DialogTitle>
+            </DialogHeader>
+            <div className="flex flex-col items-center space-y-4">
+              <div className="bg-green-500 rounded-full p-4">
+                <Image 
+                  src="/check.jpg" 
+                  alt="Order Complete" 
+                  width={40} 
+                  height={40} 
+                />
               </div>
-            </DialogContent>
-          </Dialog>
-        )}
+              <p>Your order has been successfully placed!</p>
+              <Button
+                onClick={() => {
+                  setIsOrderComplete(false);
+                  window.location.href = "/dashboard";
+                }}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                Go to Dashboard
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
