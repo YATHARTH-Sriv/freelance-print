@@ -311,7 +311,7 @@ export default function CheckoutPage() {
               <Button
                 onClick={() => {
                   setIsOrderComplete(false);
-                  window.location.href = "/dashboard";
+                  window.location.href = "/upload";
                 }}
                 className="bg-blue-600 hover:bg-blue-700 text-white"
               >
