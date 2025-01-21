@@ -11,6 +11,8 @@ interface NextConfig {
   headers(): Promise<HeaderConfig[]>;
   experimental: {
     optimizeCss: boolean;
+    // Add additional configuration for CSS optimization
+    craCompat?: boolean;
   };
   webpack(config: any): any;
 }
@@ -19,7 +21,6 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
-        // This header configuration applies to all routes except PDFs
         source: '/:path*((?!temp/).*)',
         headers: [
           {
@@ -37,7 +38,6 @@ const nextConfig: NextConfig = {
         ],
       },
       {
-        // Special header configuration for PDF files in temp directory
         source: '/temp/:path*',
         headers: [
           {
@@ -56,11 +56,9 @@ const nextConfig: NextConfig = {
       },
     ];
   },
-  // Enable the experimental optimizeCss feature
   experimental: {
-    optimizeCss: true,
+    optimizeCss: false, // Disable CSS optimization temporarily
   },
-  // Configure webpack to handle PDF files
   webpack: (config) => {
     config.module.rules.push({
       test: /\.pdf$/,
